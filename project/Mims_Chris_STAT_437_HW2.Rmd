@@ -1,0 +1,218 @@
+---
+title: "Homework 2"
+subtitle: "STAT 437 Spring 2022"
+author: |
+  | Christopher Mims
+  | (10436827)
+header-includes:
+   - \usepackage{bbm}
+   - \usepackage{amssymb}
+   - \usepackage{amsmath}
+   - \usepackage{graphicx,float}
+   - \usepackage{natbib}
+    \usepackage{fvextra}
+    \DefineVerbatimEnvironment{Highlighting}{Verbatim}{
+      breaksymbolleft={}, 
+      showspaces = false,
+      showtabs = false,
+      breaklines,
+      commandchars=\\\{\}
+    }
+output: html_document
+
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+---
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(tidy=FALSE)
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, fig.align = 'center')
+```
+
+```{r packages}
+library(knitr)
+library(formatR)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+library(igraph)
+library(igraphdata)
+library(plotly)
+```
+
+# Problem 1
+
+A subset of the `nycflight13` data, obtained through the `ggplot1` package, needs to be created for the following problems. This subset will filter the `nycflight13` data to only include four (4) different `month` 1, 7, 8, 12, three (3) different `carrier` "UA", "AA", and "DL", and for `distance` that are greater than 700 miles. 
+
+```{r subset_creation, message = FALSE, warning = FALSE}
+# Create subset of flights data set.
+p1 <- select(flights, month, arr_delay, carrier, distance) %>%
+        dplyr::filter(carrier %in% c("UA", "AA", "DL"), 
+                      month %in% c(1, 7, 8, 12),
+                      distance > 700)
+```
+
+## Part A
+
+Below I will obtain the average `arr_delay` and average `distance` for each combination of the values of `carrier` and `month`. Then I will plot the average `arr_delay` against the average `distance`, using `carrier` as a facet. The title "Base plot" will be added and centered. This will become the base plot for other parts of the problem.
+
+```{r part1a, message = FALSE, warning = FALSE}
+# Create a dataframe with the average values.
+temp <- na.omit(p1)
+p1means <- temp %>% group_by(month, carrier) %>%
+             summarize(mean_arr_delay = mean(arr_delay),
+             mean_distance = mean(distance)) %>%
+             as.data.frame()
+
+# Create the map of expressions for legend labels. 
+# This will be used in next part but must be contained 
+# in the original dataframe.
+carrierExp <- c(expression(alpha[1]), 
+                expression(beta['1,2']), 
+                expression(gamma^'[0]'))
+
+# Create column with factor labels.
+# This will be used in next part but must be contained 
+# in the original dataframe.
+p1means$factLabs = factor(p1means$carrier, labels = carrierExp)
+
+# Create base plot.
+basePlot <- ggplot(p1means, aes(mean_arr_delay, mean_distance)) +
+              geom_point(aes(shape = carrier, color = carrier, 
+                             labels = carrier), size = 3) +
+              scale_shape_manual(values = c(15, 16, 17)) +
+              scale_color_manual(values = c('red', 'blue', 'purple')) +
+              facet_wrap(~carrier) +
+              ggtitle("Base plot") +
+              theme(plot.title = element_text(hjust = 0.5))
+basePlot
+```
+
+## Part B
+
+Below I will modify the plot created above by connecting the points for each `carrier` via a dashed line. Then I will code the three levels of `carrier` as $\alpha_1$, $\beta_{1,2}$, and $\gamma^{[0]}$, and display them in the strip texts. Also, I will change the legend title to "My $\zeta$" and place the legend in the horizontal direction at the bottom of the plot. Lastly, I will add the centered title "With math expressions" to the plot.
+
+```{r part1b, message = FALSE, warning = FALSE}
+# Create new plot with modifications.
+p1b <- basePlot + 
+        geom_line(aes(linetype = carrier, 
+                      color = carrier), 
+                  size = 0.5) +
+        scale_linetype_manual(values = rep("dashed", 3), 
+                              labels = carrierExp) +
+        scale_color_manual(values = c('red', 'blue', 'purple'), 
+                           labels = carrierExp) +
+        scale_shape_manual(values = c(15, 16, 17),
+                           labels = carrierExp) +
+        facet_wrap(~factLabs, labeller = label_parsed) +
+        theme(legend.position = 'bottom',
+              legend.direction = 'horizontal') +  
+        labs(title = "With math expressions", 
+             shape = expression(paste("My ", zeta, sep = "")),
+             linetype = expression(paste("My ", zeta, sep = "")),
+             color = expression(paste("My ", zeta, sep = ""))) +
+        theme(plot.title = element_text(hjust = 0.5))
+p1b
+```
+
+In order to get a single legend, all aspects regarding the legend must be the same. Therefore, if you add labels or change colors or shapes, then all of these items must match in each area. In my code you can see that for `scale_color_manual`, and `scale_shape_manual` in this chunk, all the labels match. In the previous chunk (part1a), `scale_color_manual`, and `scale_shape_manual`, all have the same values. When any of these are not the same, multiple legends appear, mapping the differences to the corresponding legend.
+
+## Part C
+
+Below I will modify the plot from above with the following changes:
+
+* Set the font size of the strip text to 12 and rotate the strip texts counterclockwise by 15 degrees
+* Set the font size of the x-axis text to be 10 and rotate the x-axis text clockwise by 30 degrees
+* Set the x-axis label as "$\hat{\mu}$ for mean arrival delay"
+* Add a title "With font and text adjustments" that is centered
+
+```{r part1c, message = FALSE, warning = FALSE}
+p1c <- p1b +
+        xlab(expression(paste(hat(mu), ' for mean arrival dealy'))) +
+        theme(strip.text = element_text(size = 12, angle = 15),
+              axis.text.x = element_text(size = 10, angle = -30)) +
+        ggtitle("With font and text adjustments")
+p1c
+```
+
+# Problem 2
+
+Below I will use the `karate` data set from the `igraphdata` library to visualize the binary relationship between members of a karate club as an undirected graph. 
+
+```{r part2}
+# Mount the data so it can be used.
+data(karate)
+
+# Plot the data. Since it is already in the format that igraph 
+# uses to plot graph data, you only need to call the plot function.
+plot.igraph(karate)
+```
+
+The numbers or the letters in this graph represent people. Instead of annotating with their names, the labels of letters and numbers were created. These are the vertices of the graph. From this visual, we can see that there are two subgraphs. From my research on Wikipedia, this graph is from a karate club where the two instructors, H and A, decided to split and form their own karate clubs. Each subgraph is the new karate club that was formed around the instructor. What was amazing to me was that the person who created the graph, Wayne W. Zachary, was studying the original karate club when the club split. Mr. Zachary was able to correctly predict which members would follow which instructor to their new club.
+
+[Source](https://en.wikipedia.org/wiki/Zachary%27s_karate_club)
+
+## Extra Plots I Found Interesting
+
+These plots are extra... I found them very interesting and helpful! I have included the sources I used to understand how these plots were created! The code is that of the source, and not my own.
+
+To visualize the subgroups better, you could do the following:
+
+```{r part2-cluster}
+# Use the clustering algorithm that comes with `igraph` to form clusters.
+karate.clust <- cluster_fast_greedy(karate)
+
+# Plot the clustered graph.
+plot(karate.clust, karate)
+```
+
+This plot uses a greedy clustering algorithm, therefore it has crated a third group that does not fit the results that would be seen if you were to cluster them with the `cluster_optimal` function. But this shows that you can do some clustering algorithms with the `igraph` library.
+
+[Source](https://pommevilla.github.io/p3.bootcamp.da2.2019/lesson_1.html)
+
+And to make it easier to see all nodes without overlapping, you can do a circular graph, as follows:
+
+```{r part2-circle}
+# Create clusters of `karate`.
+karate.groups <- cluster_optimal(karate)
+
+# Arrange the nodes by vertex with respect to their groups created above.
+arr_circle <- layout_in_circle(karate, order = order(membership(karate.groups)))
+
+# Visualize the plot.
+plot(karate, layout = arr_circle)
+```
+
+This plot is much easier to see all of the connections without the vertices overlapping each other. You can also see that there is much more communication within each group than between each group. 
+
+[Source](https://igraph.org/r/doc/layout_in_circle.html)
+
+# Problem 3
+
+In this problem I will use the `mpg` data set to create an interactive scatter plot using the `plotly` package. The plot will have the values of `hwy` on the y-axis with a label of "highway miles per gallon," against the values of `displ` on the x-axis and a label of "engine displacement in liters." I will use the color aesthetic designated by "number of cylinders" from the `cyl` values, which will have to be converted to factors. I will then add "# of cylinders" as the legend title, as well as adjust the vertical position of the legend.
+
+```{r part3}
+# Convert `cyl` values to factors.
+mpg$cyl <- as.factor(mpg$cyl)
+
+# Create the interactive plot with adjustments.
+# The layout function changes the axis and legend 
+# titles and legend position.
+# Legend position is changed as a number between 0 and 1
+# with 0 being left or bottom and 1 being right or top.
+p3 <- plot_ly(mpg, x = ~displ, y = ~hwy, 
+              color = ~cyl,
+              type = 'scatter') %>%
+        layout(xaxis = list(title = 'engine displacement in liters'),
+               yaxis = list(title = 'highway miles per gallon'),
+               legend = list(x = 0.9, y = 0.01, 
+                             title = list(text = '<b># of cylinders')))
+
+
+p3
+```
+
+
+
+
+
