@@ -46,7 +46,7 @@ There are two options to be able to run the attached R markdown code files. Run 
 1. Clone the repository 
 
    ```
-   git clone https://github.com/DataChris24/STAT437_Project1.git
+   git clone https://github.com/DataChris24/STAT437_HW2.git
    ```
 2. In your terminal navigate to the root folder of the repo and run 
 
